@@ -1,0 +1,138 @@
+name: 🚀 Bootstrap Repository 2
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: "Nome do repositório"
+        required: true
+
+      area:
+        description: "Área (dev, infra, db)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - infra
+          - db
+
+      domains:
+        description: "Domínios (ex: apis ou apis,apps)"
+        required: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+
+    env:
+      ORG: junta-comercial-mg
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+    steps:
+      # ✅ Debug inicial
+      - name: 🔍 Debug inputs
+        run: |
+          echo "Repo: ${{ github.event.inputs.repo_name }}"
+          echo "Area: ${{ github.event.inputs.area }}"
+          echo "Domains: ${{ github.event.inputs.domains }}"
+
+      # ✅ 1. VALIDAR DOMÍNIOS DINAMICAMENTE
+      - name: ✅ Validate domains from teams
+        if: ${{ github.event.inputs.domains != '' }}
+        run: |
+          INPUT_DOMAINS="${{ github.event.inputs.domains }}"
+
+          echo "🔍 Buscando domains via teams..."
+
+          VALID_DOMAINS=$(gh api /orgs/$ORG/teams -q '.[].slug' \
+            | grep '^grp-' \
+            | sed 's/grp-//')
+
+          echo "✅ Domínios disponíveis:"
+          echo "$VALID_DOMAINS"
+
+          for domain in $(echo $INPUT_DOMAINS | tr ',' ' '); do
+            if ! echo "$VALID_DOMAINS" | grep -w "$domain" > /dev/null; then
+              echo "❌ Domínio inválido: $domain"
+              exit 1
+            fi
+          done
+
+          echo "✅ Domínios válidos"
+
+      # ✅ 2. VALIDAR TEAMS DE PERMISSÃO
+      - name: 🔍 Check permission teams
+        run: |
+          AREA="${{ github.event.inputs.area }}"
+
+          gh api /orgs/$ORG/teams/perm-$AREA-developer \
+            || { echo "❌ perm-$AREA-developer não existe"; exit 1; }
+
+          gh api /orgs/$ORG/teams/perm-$AREA-maintainer \
+            || { echo "❌ perm-$AREA-maintainer não existe"; exit 1; }
+
+      # ✅ 3. CRIAR REPOSITÓRIO (IDEMPOTENTE)
+      - name: 📦 Create repository
+        run: |
+          REPO="${{ github.event.inputs.repo_name }}"
+
+          if gh repo view $ORG/$REPO > /dev/null 2>&1; then
+            echo "✅ Repo já existe"
+          else
+            echo "🚀 Criando repo $REPO"
+            gh repo create $ORG/$REPO --private --confirm
+          fi
+
+      # ✅ 4. APLICAR PERMISSÕES (IDEMPOTENTE)
+      - name: 🔐 Apply permissions
+        run: |
+          REPO="${{ github.event.inputs.repo_name }}"
+          AREA="${{ github.event.inputs.area }}"
+
+          echo "👉 perm-$AREA-developer (write)"
+          gh api \
+            --method PUT \
+            /orgs/$ORG/teams/perm-$AREA-developer/repos/$ORG/$REPO \
+            -f permission=push
+
+          echo "👉 perm-$AREA-maintainer (maintain)"
+          gh api \
+            --method PUT \
+            /orgs/$ORG/teams/perm-$AREA-maintainer/repos/$ORG/$REPO \
+            -f permission=maintain
+
+      # ✅ 5. APLICAR TOPICS (MULTI-DOMAIN)
+      - name: 🏷️ Apply topics
+        if: ${{ github.event.inputs.domains != '' }}
+        run: |
+          REPO="${{ github.event.inputs.repo_name }}"
+          DOMAINS="${{ github.event.inputs.domains }}"
+
+          for domain in $(echo $DOMAINS | tr ',' ' '); do
+            echo "👉 adicionando topic: $domain"
+            gh repo edit $ORG/$REPO --add-topic "$domain" || true
+          done
+
+      # ✅ 6. AUTO-CORREÇÃO DE TOPICS
+      - name: 🔄 Ensure topics consistency
+        if: ${{ github.event.inputs.domains != '' }}
+        run: |
+          REPO="${{ github.event.inputs.repo_name }}"
+          DOMAINS="${{ github.event.inputs.domains }}"
+
+          CURRENT=$(gh repo view $ORG/$REPO \
+            --json repositoryTopics \
+            -q '.repositoryTopics[].topic.name')
+
+          for domain in $(echo $DOMAINS | tr ',' ' '); do
+            if ! echo "$CURRENT" | grep -w "$domain" > /dev/null; then
+              echo "⚠️ Corrigindo topic $domain"
+              gh repo edit $ORG/$REPO --add-topic "$domain"
+            fi
+          done
+
+      # ✅ 7. FINAL
+      - name: ✅ Done
+        run: |
+          echo "🎉 Bootstrap concluído com sucesso!"
+          echo "Repo: ${{ github.event.inputs.repo_name }}"
