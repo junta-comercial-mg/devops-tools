@@ -1,4 +1,4 @@
-name: 🚀 Create Repository (Bootstrap)
+name: 🚀 Bootstrap Repository
 
 on:
   workflow_dispatch:
@@ -17,80 +17,95 @@ jobs:
   bootstrap:
     runs-on: ubuntu-latest
 
+    env:
+      ORG: junta-comercial-mg
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: 🔐 Authenticate gh
+        run: echo "$GH_TOKEN" | gh auth login --with-token
 
-      - name: Install GitHub CLI
+      # ✅ 1. VALIDAR INPUT
+      - name: ✅ Validate inputs
         run: |
-          sudo apt-get update
-          sudo apt-get install gh -y
+          case "${{ github.event.inputs.domain }}" in
+            apis|apps|jmss) echo "Domain OK" ;;
+            *) echo "❌ Invalid domain"; exit 1 ;;
+          esac
 
-      - name: Authenticate gh
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          gh auth setup-git
+          case "${{ github.event.inputs.area }}" in
+            dev|infra|db) echo "Area OK" ;;
+            *) echo "❌ Invalid area"; exit 1 ;;
+          esac
 
-      - name: Create repository
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      # ✅ 2. VALIDAR TEAM EXISTE
+      - name: 🔍 Check required teams
         run: |
-          ORG="junta-comercial-mg"
+          gh api /orgs/$ORG/teams/grp-${{ github.event.inputs.domain }} \
+            || { echo "❌ Team grp-${{ github.event.inputs.domain }} não existe"; exit 1; }
+
+          gh api /orgs/$ORG/teams/perm-${{ github.event.inputs.area }}-developer \
+            || { echo "❌ perm-developer não existe"; exit 1; }
+
+          gh api /orgs/$ORG/teams/perm-${{ github.event.inputs.area }}-maintainer \
+            || { echo "❌ perm-maintainer não existe"; exit 1; }
+
+      # ✅ 3. CRIAR REPO (IDEMPOTENTE)
+      - name: 📦 Create repository (idempotent)
+        run: |
           REPO="${{ github.event.inputs.repo_name }}"
 
-          echo "🚀 Criando repo $REPO..."
+          if gh repo view $ORG/$REPO > /dev/null 2>&1; then
+            echo "✅ Repo já existe"
+          else
+            echo "🚀 Criando repo $REPO"
+            gh repo create $ORG/$REPO --private --confirm
+          fi
 
-          gh repo create $ORG/$REPO --private --confirm
-
-      - name: Apply grp team
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      # ✅ 4. GARANTIR PERMISSÕES (IDEMPOTENTE)
+      - name: 🔐 Apply permissions
         run: |
-          ORG="junta-comercial-mg"
-          REPO="${{ github.event.inputs.repo_name }}"
-          DOMAIN="${{ github.event.inputs.domain }}"
-
-          echo "📁 Associando grp-$DOMAIN..."
-
-          gh api \
-            --method PUT \
-            /orgs/$ORG/teams/grp-$DOMAIN/repos/$ORG/$REPO \
-            -f permission=pull
-
-      - name: Apply permissions
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          ORG="junta-comercial-mg"
           REPO="${{ github.event.inputs.repo_name }}"
           AREA="${{ github.event.inputs.area }}"
 
-          echo "🔐 Aplicando permissões..."
-
-          echo "📁 Aplicando permissões /orgs/$ORG/teams/perm-$AREA-developer/repos/$ORG/$REPO"
+          echo "👉 Aplicando perm-dev-developer"
           gh api \
             --method PUT \
             /orgs/$ORG/teams/perm-$AREA-developer/repos/$ORG/$REPO \
             -f permission=push
 
-          echo "📁 Aplicando permissões /orgs/$ORG/teams/perm-$AREA-maintainer/repos/$ORG/$REPO"
+          echo "👉 Aplicando perm-dev-maintainer"
           gh api \
             --method PUT \
             /orgs/$ORG/teams/perm-$AREA-maintainer/repos/$ORG/$REPO \
             -f permission=maintain
 
-      - name: Add topic
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      # ✅ 5. GARANTIR TOPIC
+      - name: 🏷️ Apply topic
         run: |
-          ORG="junta-comercial-mg"
           REPO="${{ github.event.inputs.repo_name }}"
           DOMAIN="${{ github.event.inputs.domain }}"
 
-          echo "🏷️ Adicionando topic $DOMAIN..."
+          echo "👉 Aplicando topic $DOMAIN"
+          gh repo edit $ORG/$REPO --add-topic $DOMAIN || true
 
-          gh repo edit $ORG/$REPO --add-topic $DOMAIN
+      # ✅ 6. AUTO-CORREÇÃO (opcional)
+      - name: 🔄 Ensure consistency
+        run: |
+          REPO="${{ github.event.inputs.repo_name }}"
+          DOMAIN="${{ github.event.inputs.domain }}"
 
-      - name: Done
-        run: echo "✅ Bootstrap finalizado com sucesso!"
+          echo "🔍 Verificando estado..."
+
+          # garante topic
+          CURRENT=$(gh repo view $ORG/$REPO --json repositoryTopics -q '.repositoryTopics[].topic.name')
+
+          if [[ "$CURRENT" != *"$DOMAIN"* ]]; then
+            echo "⚠️ Corrigindo topic"
+            gh repo edit $ORG/$REPO --add-topic $DOMAIN
+          fi
+
+      # ✅ 7. FINAL
+      - name: ✅ Done
+        run: |
+          echo "🎉 Bootstrap concluído com sucesso!"
