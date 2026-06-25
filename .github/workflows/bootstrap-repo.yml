@@ -68,11 +68,13 @@ jobs:
 
           echo "🔐 Aplicando permissões..."
 
+          echo "📁 Aplicando permissões /orgs/$ORG/teams/perm-$AREA-developer/repos/$ORG/$REPO"
           gh api \
             --method PUT \
             /orgs/$ORG/teams/perm-$AREA-developer/repos/$ORG/$REPO \
             -f permission=push
 
+          echo "📁 Aplicando permissões /orgs/$ORG/teams/perm-$AREA-maintainer/repos/$ORG/$REPO"
           gh api \
             --method PUT \
             /orgs/$ORG/teams/perm-$AREA-maintainer/repos/$ORG/$REPO \
