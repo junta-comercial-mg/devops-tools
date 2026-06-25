@@ -78,11 +78,6 @@ jobs:
             /orgs/$ORG/teams/perm-$AREA-maintainer/repos/$ORG/$REPO \
             -f permission=maintain
 
-          gh api \
-            --method PUT \
-            /orgs/$ORG/teams/perm-$AREA-reporter/repos/$ORG/$REPO \
-            -f permission=pull
-
       - name: Add topic
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
