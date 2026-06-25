@@ -1,10 +1,99 @@
-name: Test
+name: 🚀 Create Repository (Bootstrap)
 
 on:
   workflow_dispatch:
+    inputs:
+      repo_name:
+        description: "Nome do repositório"
+        required: true
+      area:
+        description: "Área (dev, infra, db)"
+        required: true
+      domain:
+        description: "Domínio (apis, apps, jmss)"
+        required: true
 
 jobs:
-  test:
+  bootstrap:
     runs-on: ubuntu-latest
+
     steps:
-      - run: echo "OK"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install gh -y
+
+      - name: Authenticate gh
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          gh auth setup-git
+
+      - name: Create repository
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          ORG="junta-comercial-mg"
+          REPO="${{ github.event.inputs.repo_name }}"
+
+          echo "🚀 Criando repo $REPO..."
+
+          gh repo create $ORG/$REPO --private --confirm
+
+      - name: Apply grp team
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          ORG="junta-comercial-mg"
+          REPO="${{ github.event.inputs.repo_name }}"
+          DOMAIN="${{ github.event.inputs.domain }}"
+
+          echo "📁 Associando grp-$DOMAIN..."
+
+          gh api \
+            --method PUT \
+            /orgs/$ORG/teams/grp-$DOMAIN/repos/$ORG/$REPO \
+            -f permission=pull
+
+      - name: Apply permissions
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          ORG="junta-comercial-mg"
+          REPO="${{ github.event.inputs.repo_name }}"
+          AREA="${{ github.event.inputs.area }}"
+
+          echo "🔐 Aplicando permissões..."
+
+          gh api \
+            --method PUT \
+            /orgs/$ORG/teams/perm-$AREA-developer/repos/$ORG/$REPO \
+            -f permission=push
+
+          gh api \
+            --method PUT \
+            /orgs/$ORG/teams/perm-$AREA-maintainer/repos/$ORG/$REPO \
+            -f permission=maintain
+
+          gh api \
+            --method PUT \
+            /orgs/$ORG/teams/perm-$AREA-reporter/repos/$ORG/$REPO \
+            -f permission=pull
+
+      - name: Add topic
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          ORG="junta-comercial-mg"
+          REPO="${{ github.event.inputs.repo_name }}"
+          DOMAIN="${{ github.event.inputs.domain }}"
+
+          echo "🏷️ Adicionando topic $DOMAIN..."
+
+          gh repo edit $ORG/$REPO --add-topic $DOMAIN
+
+      - name: Done
+        run: echo "✅ Bootstrap finalizado com sucesso!"
