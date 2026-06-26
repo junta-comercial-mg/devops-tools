@@ -109,12 +109,10 @@ jobs:
             done
             exit 1
           fi
-      
+          
           echo "✅ Domínio válido: $INPUT_DOMAIN"
           echo "👉 SUGESTÃO AUTOMÁTICA:"
           echo "domain: $(echo $DOMAINS | head -n 1)"
-
-
 
 
       # ✅ 3. CRIAR REPOSITÓRIO (IDEMPOTENTE)
