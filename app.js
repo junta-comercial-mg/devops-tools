@@ -27,6 +27,8 @@ async function createRepo() {
   if (response.ok) {
     alert("✅ Workflow disparado!");
   } else {
-    alert("❌ Erro ao disparar workflow");
+    const text = await response.text();
+    console.error(text);
+    alert("❌ Erro: " + text);
   }
 }
