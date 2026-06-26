@@ -1,0 +1,14 @@
+{
+  "areas": {
+    "dev": {
+      "domains": ["apis", "apps", "jmss"]
+    },
+    "infra": {
+      "domains": ["terraform"]
+    },
+    "db": {
+      "domains": ["data"]
+    }
+  }
+}
+
