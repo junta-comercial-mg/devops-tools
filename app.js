@@ -1,4 +1,4 @@
-const TOKEN = prompt("Informe seu token:")
+const TOKEN = "11CF2VCCY0orEUVlHVUyQh_jriBCWbSpBGFEFjA03LTT8yMv1St0u0V4ZObV9HtZxf3ACMC2GA98TMLcWt";
 async function createRepo() {
   const repo = document.getElementById("repo").value;
   const area = document.getElementById("area").value;
@@ -9,7 +9,7 @@ async function createRepo() {
     {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${TOKEN}`,
+        "Authorization": `Bearer github_pat_${TOKEN}`,
         "Accept": "application/vnd.github+json"
       },
       body: JSON.stringify({
