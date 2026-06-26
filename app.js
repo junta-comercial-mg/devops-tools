@@ -48,32 +48,41 @@ function validate(repo, area, domain) {
    🎯 CARREGAR ÁREAS
 ========================= */
 async function loadAreas() {
-  const res = await fetch(`https://api.github.com/orgs/${ORG}/teams`);
+  
+  const res = await fetch(`https://api.github.com/orgs/${ORG}/teams`, {
+    headers: {
+      "Authorization": `Bearer github_pat_${TOKEN.trim()}`,
+      "Accept": "application/vnd.github+json"
+    }
+  });
   const teams = await res.json();
-
   const areas = teams.filter(t => t.slug.startsWith("area-"));
-
   const select = document.getElementById("area");
 
+  select.innerHTML = "";
   areas.forEach(a => {
     const value = a.slug.replace("area-", "");
-
     const opt = document.createElement("option");
     opt.value = value;
     opt.textContent = value;
-
     select.appendChild(opt);
   });
-
-  // carrega domains iniciais
-  loadDomains(select.value);
+  if (areas.length > 0) {
+    loadDomains(select.value);
+  }
 }
 
 /* =========================
    🎯 CARREGAR DOMÍNIOS
 ========================= */
 async function loadDomains(area) {
-  const res = await fetch(`https://api.github.com/orgs/${ORG}/teams`);
+  const res = await fetch(`https://api.github.com/orgs/${ORG}/teams`, {
+    headers: {
+      "Authorization": `Bearer github_pat_${TOKEN.trim()}`,
+      "Accept": "application/vnd.github+json"
+    }
+  });
+
   const teams = await res.json();
 
   const domains = teams
@@ -137,10 +146,14 @@ async function createRepo() {
    📦 CATÁLOGO DE REPOS
 ========================= */
 async function loadRepos() {
+  const res = await fetch(`https://api.github.com/orgs/${ORG}/repos?per_page=100`, {
+    headers: {
+      "Authorization": `Bearer github_pat_${TOKEN.trim()}`,
+      "Accept": "application/vnd.github+json, application/vnd.github.mercy-preview+json"
+    }
+  });
 
-  const res = await fetch(`https://api.github.com/orgs/${ORG}/repos?per_page=100`);
   const repos = await res.json();
-
   const catalog = {};
 
   for (const repo of repos) {
@@ -151,7 +164,6 @@ async function loadRepos() {
       catalog[t].push(repo.name);
     });
   }
-
   renderCatalog(catalog);
 }
 
