@@ -47,6 +47,19 @@ jobs:
           gh api /orgs/$ORG/teams/perm-$AREA-maintainer \
             || { echo "❌ perm-$AREA-maintainer não existe"; exit 1; }
 
+      - name: 🔍 List valid domains for area
+        run: |
+          AREA="area-${{ github.event.inputs.area }}"
+      
+          SUBTEAMS=$(gh api /orgs/$ORG/teams/$AREA -q '.children[].slug')
+      
+          DOMAINS=$(echo "$SUBTEAMS" | grep '^grp-' | sed 's/grp-//')
+      
+          echo ""
+          echo "✅ DOMÍNIOS DISPONÍVEIS PARA $AREA:"
+          echo "$DOMAINS"
+          echo ""
+
       # ✅ 2. VALIDAR DOMAIN A PARTIR DA HIERARQUIA
       - name: ✅ Validate domain from area hierarchy
         if: ${{ github.event.inputs.domain != '' }}
