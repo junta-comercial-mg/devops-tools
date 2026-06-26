@@ -36,6 +36,75 @@ jobs:
           echo "Area: ${{ github.event.inputs.area }}"
           echo "Domain: ${{ github.event.inputs.domain }}"
 
+      # ✅ VALIDACOES
+      - name: 🔎 Validate naming & smart warnings
+        run: |
+          REPO="${{ github.event.inputs.repo_name }}"
+          AREA="${{ github.event.inputs.area }}"
+          DOMAIN="${{ github.event.inputs.domain }}"
+      
+          echo ""
+          echo "========================================"
+          echo "🔎 NAMING & CONSISTENCY CHECK"
+          echo "========================================"
+          echo "Repo: $REPO"
+          echo "Área: $AREA"
+          echo "Domínio: ${DOMAIN:-<não informado>}"
+          echo ""
+      
+          # =======================================
+          # ✅ PRÉ-VALIDAÇÃO (REGRAS DE NOMENCLATURA)
+          # =======================================
+      
+          echo "✅ Validando nome do repositório..."
+      
+          # Regra base
+          if [[ ! "$REPO" =~ ^[a-z0-9-]+$ ]]; then
+            echo "❌ Nome inválido"
+            echo "👉 Use apenas: letras minúsculas, números e '-'"
+            exit 1
+          fi
+      
+          # Não começar ou terminar com "-"
+          if [[ "$REPO" == -* || "$REPO" == *- ]]; then
+            echo "❌ Nome não pode começar ou terminar com '-'"
+            exit 1
+          fi
+      
+          # Evitar duplicação de hífen
+          if [[ "$REPO" == *"--"* ]]; then
+            echo "❌ Nome não pode conter '--'"
+            exit 1
+          fi
+      
+          # Tamanho mínimo
+          if [ ${#REPO} -lt 3 ]; then
+            echo "❌ Nome muito curto"
+            exit 1
+          fi
+      
+          echo "✅ Naming válido"
+          echo ""
+      
+          # =======================================
+          # ⚠️ WARNINGS INTELIGENTES (NÃO BLOQUEIAM)
+          # =======================================      
+          echo "🧠 Análise inteligente..."      
+          # Naming pouco expressivo
+          if [[ "$REPO" != *-* ]]; then
+            echo "⚠️ Sugestão: use nomes compostos (ex: api-mailing)"
+          fi
+      
+          # Nome muito genérico
+          if [[ "$REPO" == "test" || "$REPO" == "app" || "$REPO" == "api" ]]; then
+            echo "⚠️ Nome muito genérico — pode causar confusão no futuro"
+          fi
+      
+          echo ""
+          echo "✅ Validação concluída"
+
+
+
       # ✅ 1. VALIDAR TEAMS DE PERMISSÃO
       - name: 🔐 Validate permission teams
         run: |
@@ -48,72 +117,74 @@ jobs:
             || { echo "❌ perm-$AREA-maintainer não existe"; exit 1; }
 
       # ✅ 2. VALIDAR DOMAIN A PARTIR DA HIERARQUIA
-      - name: 🎯 Interactive domain selection
+      - name: 🎯 Validate domain requirement based on area
         run: |
           AREA="area-${{ github.event.inputs.area }}"
           INPUT_DOMAIN="${{ github.event.inputs.domain }}"
-          REPO="${{ github.event.inputs.repo_name }}"
       
           echo ""
-          echo "=================================================="
-          echo "🚀 BOOTSTRAP REPOSITORY"
-          echo "=================================================="
-          echo "Repo: $REPO"
+          echo "========================================"
+          echo "🎯 DOMAIN VALIDATION (SMART RULE)"
+          echo "========================================"
           echo "Área: $AREA"
-          echo "Domínio informado: ${INPUT_DOMAIN:-<nenhum>}"
+          echo "Domain informado: ${INPUT_DOMAIN:-<nenhum>}"
           echo ""
       
-          echo "🔍 Descobrindo domínios disponíveis..."
+          echo "🔍 Buscando subteams da área..."
       
-          # Busca subteams
+          # Buscar subteams da área
           SUBTEAMS=$(gh api /orgs/$ORG/teams \
             -q ".[] | select(.parent != null and .parent.slug == \"$AREA\") | .slug")
       
+          # Extrair grp-*
           DOMAINS=$(echo "$SUBTEAMS" | grep '^grp-' | sed 's/grp-//')
       
-          if [ -z "$DOMAINS" ]; then
-            echo "⚠️ Nenhum domínio encontrado para $AREA"
-            echo "👉 Continue sem domain"
-            exit 0
-          fi
-      
           echo ""
-          echo "✅ Domínios disponíveis para $AREA:"
-          echo "----------------------------------"
-      
-          for d in $DOMAINS; do
-            echo "👉 $d"
-          done
-      
+          echo "✅ Domínios disponíveis:"
+          echo "$DOMAINS"
           echo ""
-
-          # ✅ Caso 1: usuário não informou domain
-          if [ -z "$INPUT_DOMAIN" ]; then
-            echo "ℹ️ Nenhum domínio informado."
-            echo ""
-            echo "👉 Execute novamente informando um dos domínios acima."
-            echo ""
-            echo "Exemplo:"
-            echo "domain: apis"
-            echo ""
-            exit 0
-          fi
       
-          # ✅ Caso 2: domínio inválido
-          if ! echo "$DOMAINS" | grep -w "$INPUT_DOMAIN" > /dev/null; then
-            echo "❌ Domínio inválido: $INPUT_DOMAIN"
-            echo ""
-            echo "✅ Use um dos valores abaixo:"
-            for d in $DOMAINS; do
-              echo "👉 $d"
-            done
-            exit 1
+          # =========================================
+          # ✅ REGRA PRINCIPAL
+          # =========================================
+      
+          if [ -n "$DOMAINS" ]; then
+            echo "🧠 Área possui domínios obrigatórios"
+      
+            # 🔴 Domain NÃO informado
+            if [ -z "$INPUT_DOMAIN" ]; then
+              echo ""
+              echo "❌ Esta área possui domínios e requer 'domain'"
+              echo ""
+              echo "👉 Informe um dos seguintes:"
+              for d in $DOMAINS; do
+                echo "   - $d"
+              done
+              exit 1
+            fi
+      
+            # 🔴 Domain inválido
+            if ! echo "$DOMAINS" | grep -w "$INPUT_DOMAIN" > /dev/null; then
+              echo ""
+              echo "❌ Domínio inválido: $INPUT_DOMAIN"
+              echo ""
+              echo "✅ Use um dos seguintes:"
+              for d in $DOMAINS; do
+                echo "   - $d"
+              done
+              exit 1
+            fi
+      
+            echo "✅ Domínio válido: $INPUT_DOMAIN"
+      
+          else
+            echo "🧠 Área NÃO possui domínios (grp-*)"
+      
+            # ✅ Não obrigatório, mas pode avisar
+            if [ -n "$INPUT_DOMAIN" ]; then
+              echo "⚠️ Domain informado será ignorado pois não há grp-* nessa área"
+            fi
           fi
-          
-          echo "✅ Domínio válido: $INPUT_DOMAIN"
-          echo "👉 SUGESTÃO AUTOMÁTICA:"
-          echo "domain: $(echo $DOMAINS | head -n 1)"
-
 
       # ✅ 3. CRIAR REPOSITÓRIO (IDEMPOTENTE)
       - name: 📦 Create repository
