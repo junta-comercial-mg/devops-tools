@@ -47,46 +47,39 @@ jobs:
           gh api /orgs/$ORG/teams/perm-$AREA-maintainer \
             || { echo "❌ perm-$AREA-maintainer não existe"; exit 1; }
 
-      - name: 🔍 List valid domains for area
-        run: |
-          AREA="area-${{ github.event.inputs.area }}"
-      
-          SUBTEAMS=$(gh api /orgs/$ORG/teams/$AREA -q '.children[].slug')
-      
-          DOMAINS=$(echo "$SUBTEAMS" | grep '^grp-' | sed 's/grp-//')
-      
-          echo ""
-          echo "✅ DOMÍNIOS DISPONÍVEIS PARA $AREA:"
-          echo "$DOMAINS"
-          echo ""
-
       # ✅ 2. VALIDAR DOMAIN A PARTIR DA HIERARQUIA
       - name: ✅ Validate domain from area hierarchy
         if: ${{ github.event.inputs.domain != '' }}
         run: |
           AREA="area-${{ github.event.inputs.area }}"
           INPUT_DOMAIN="${{ github.event.inputs.domain }}"
-
+      
           echo "🔍 Buscando subteams de $AREA..."
-
-          # pega subteams da área
-          SUBTEAMS=$(gh api /orgs/$ORG/teams/$AREA -q '.children[].slug')
-
+      
+          # pega todos teams com parent == AREA
+          SUBTEAMS=$(gh api /orgs/$ORG/teams \
+            -q ".[] | select(.parent.slug == \"$AREA\") | .slug")
+      
           echo "📁 Subteams encontrados:"
           echo "$SUBTEAMS"
-
+      
           # extrai apenas grp-*
           DOMAINS=$(echo "$SUBTEAMS" | grep '^grp-' | sed 's/grp-//')
-
-          echo "✅ Domínios válidos para $AREA:"
+      
+          if [ -z "$DOMAINS" ]; then
+            echo "⚠️ Nenhum domínio encontrado para $AREA"
+          fi
+      
+          echo "✅ Domínios válidos:"
           echo "$DOMAINS"
-
+      
           if ! echo "$DOMAINS" | grep -w "$INPUT_DOMAIN" > /dev/null; then
             echo "❌ Domínio inválido para a área selecionada"
             exit 1
           fi
-
+      
           echo "✅ Domínio válido"
+
 
       # ✅ 3. CRIAR REPOSITÓRIO (IDEMPOTENTE)
       - name: 📦 Create repository
