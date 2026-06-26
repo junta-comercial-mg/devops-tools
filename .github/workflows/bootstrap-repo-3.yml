@@ -1,0 +1,155 @@
+name: 🚀 Bootstrap Repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Nome do repositório"
+        required: true
+
+      area:
+        description: "Área"
+        required: true
+
+      domain:
+        description: "Domínio (opcional dependendo da área)"
+        required: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      ORG: junta-comercial-mg
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+    steps:
+
+      # ✅ 1. CHECKOUT
+      - name: 📦 Checkout
+        uses: actions/checkout@v3
+
+      # ✅ 2. INPUTS
+      - name: 📥 Capture inputs
+        id: input
+        run: |
+          echo "repo=${{ github.event.inputs.repo }}" >> $GITHUB_OUTPUT
+          echo "area=${{ github.event.inputs.area }}" >> $GITHUB_OUTPUT
+          echo "domain=${{ github.event.inputs.domain }}" >> $GITHUB_OUTPUT
+
+      # ✅ 3. LOAD CONFIG
+      - name: 🧠 Load config
+        id: config
+        run: |
+          CONFIG=$(cat config.json)
+
+          AREA="${{ steps.input.outputs.area }}"
+
+          echo "🔍 Validando área: $AREA"
+
+          if ! echo "$CONFIG" | jq -e ".areas.$AREA" > /dev/null; then
+            echo "❌ Área inválida: $AREA"
+            exit 1
+          fi
+
+          DOMAINS=$(echo "$CONFIG" | jq -r ".areas.$AREA.domains[]")
+
+          echo ""
+          echo "✅ Domínios disponíveis:"
+          echo "$DOMAINS"
+          echo ""
+
+          echo "domains<<EOF" >> $GITHUB_OUTPUT
+          echo "$DOMAINS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # ✅ 4. VALIDAR DOMAIN
+      - name: ✅ Validate domain
+        run: |
+          DOMAIN="${{ steps.input.outputs.domain }}"
+          DOMAINS="${{ steps.config.outputs.domains }}"
+
+          echo "🔍 Domain informado: ${DOMAIN:-<nenhum>}"
+
+          # obrigatório se existir domains
+          if [ -n "$DOMAINS" ] && [ -z "$DOMAIN" ]; then
+            echo ""
+            echo "❌ Esta área requer 'domain'"
+            echo ""
+            echo "👉 Use um dos seguintes:"
+            echo "$DOMAINS"
+            exit 1
+          fi
+
+          if [ -n "$DOMAIN" ]; then
+            if ! echo "$DOMAINS" | grep -w "$DOMAIN"; then
+              echo ""
+              echo "❌ Domain inválido: $DOMAIN"
+              echo ""
+              echo "👉 Opções válidas:"
+              echo "$DOMAINS"
+              exit 1
+            fi
+          fi
+
+          echo "✅ Domain válido"
+
+      # ✅ 5. VALIDAR NOME
+      - name: 🔎 Validate repo name
+        run: |
+          REPO="${{ steps.input.outputs.repo }}"
+
+          if [[ ! "$REPO" =~ ^[a-z0-9-]+$ ]]; then
+            echo "❌ Nome inválido"
+            exit 1
+          fi
+
+          echo "✅ Nome válido"
+
+      # ✅ 6. CRIAR REPOSITÓRIO
+      - name: 📦 Create repository
+        run: |
+          REPO="${{ steps.input.outputs.repo }}"
+
+          echo "🚀 Criando repo: $REPO"
+
+          if gh repo view $ORG/$REPO > /dev/null 2>&1; then
+            echo "✅ Repo já existe"
+          else
+            gh repo create $ORG/$REPO --private --confirm
+            echo "✅ Repo criado"
+          fi
+
+      # ✅ 7. PERMISSÕES
+      - name: 🔐 Apply permissions
+        run: |
+          REPO="${{ steps.input.outputs.repo }}"
+          AREA="${{ steps.input.outputs.area }}"
+
+          echo "👉 Aplicando permissões..."
+
+          gh api \
+            --method PUT \
+            /orgs/$ORG/teams/perm-$AREA-developer/repos/$ORG/$REPO \
+            -f permission=push || true
+
+          gh api \
+            --method PUT \
+            /orgs/$ORG/teams/perm-$AREA-maintainer/repos/$ORG/$REPO \
+            -f permission=maintain || true
+
+      # ✅ 8. TOPIC
+      - name: 🏷️ Apply domain topic
+        if: ${{ steps.input.outputs.domain != '' }}
+        run: |
+          REPO="${{ steps.input.outputs.repo }}"
+          DOMAIN="${{ steps.input.outputs.domain }}"
+
+          gh repo edit $ORG/$REPO --add-topic "$DOMAIN" || true
+
+      # ✅ FINAL
+      - name: ✅ Done
+        run: |
+          echo ""
+          echo "🎉 Repo criado com sucesso"
