@@ -1,4 +1,4 @@
-const TOKEN = "11CF2VCCY0orEUVlHVUyQh_jriBCWbSpBGFEFjA03LTT8yMv1St0u0V4ZObV9HtZxf3ACMC2GA98TMLcWt";
+const TOKEN = "11CF2VCCY0Cqt855NzlWN2_yZyIFTAaiabITXbxy1UhV8lKQy2JRL8TdJhWnF1DkkK76VALAOI4vRqu0gu";
 const ORG = "junta-comercial-mg";
 
 /* =========================
