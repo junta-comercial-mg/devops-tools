@@ -23,6 +23,7 @@ on:
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
+    environment: production
 
     env:
       ORG: junta-comercial-mg
