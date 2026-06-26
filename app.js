@@ -49,7 +49,7 @@ function validate(repo, area, domain) {
 ========================= */
 async function loadAreas() {
   
-  const res = await fetch(`https://api.github.com/orgs/${ORG}/teams`, {
+  const res = await fetch(`https://api.github.com/user/teams`, {
     headers: {
       "Authorization": `Bearer github_pat_${TOKEN.trim()}`,
       "Accept": "application/vnd.github+json"
