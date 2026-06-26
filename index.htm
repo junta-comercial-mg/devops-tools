@@ -1,28 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Bootstrap Repository</title>
+  <meta charset="UTF-8">
+  <title>🚀 Bootstrap Repository</title>
 </head>
 
 <body>
+
   <h2>🚀 Criar Repositório</h2>
 
-  <label>Nome do Repo:</label><br>
-  <input type="text" id="repo"><br><br>
+  <!-- Nome -->
+  <label>Nome do Repo</label><br>
+  <input type="text" id="repo" placeholder="ex: api-mailing"><br><br>
 
-  <label>Área:</label><br>
-  <select id="area">
-    <option value="dev">dev</option>
-    <option value="infra">infra</option>
-    <option value="db">db</option>
-  </select><br><br>
+  <!-- Área -->
+  <label>Área</label><br>
+  <select id="area"></select><br><br>
 
-  <label>Domínio:</label><br>
-  <input type="text" id="domain"><br><br>
+  <!-- Domínio -->
+  <label>Domínio</label><br>
+  <select id="domain"></select><br><br>
 
   <button onclick="createRepo()">Criar</button>
 
+  <hr>
+
+  <h2>📦 Catálogo de Repositórios</h2>
+  <div id="catalog"></div>
+
+  <!-- IMPORTANTE: config.js NÃO versionado -->
+  <script src="config.js"></script>
   <script src="app.js"></script>
+
 </body>
 </html>
