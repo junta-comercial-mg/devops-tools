@@ -76,7 +76,7 @@ async function loadAreas() {
    🎯 CARREGAR DOMÍNIOS
 ========================= */
 async function loadDomains(area) {
-  const res = await fetch(`https://api.github.com/orgs/${ORG}/teams`, {
+  const res = await fetch(`https://api.github.com/user/teams`, {
     headers: {
       "Authorization": `Bearer github_pat_${TOKEN.trim()}`,
       "Accept": "application/vnd.github+json"
