@@ -1,5 +1,4 @@
-const TOKEN = "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"; // ⚠️ por enquanto
-
+const TOKEN = prompt("Informe seu token:")
 async function createRepo() {
   const repo = document.getElementById("repo").value;
   const area = document.getElementById("area").value;
