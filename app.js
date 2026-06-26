@@ -1,4 +1,4 @@
-const TOKEN = "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"; // ⚠️ por enquanto
+const TOKEN = "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"; // ⚠️ por enquanto
 
 async function createRepo() {
   const repo = document.getElementById("repo").value;
